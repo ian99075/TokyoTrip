@@ -3,7 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>東京家庭旅遊 | 自由設定版</title>
+    <title>東京 7 日遊 | 家庭旅行助手</title>
+    
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="東京之旅">
+    
+    <meta name="theme-color" content="#111827">
+    
+    <meta name="format-detection" content="telephone=no">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2249/2249723.png"> 
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -17,6 +29,9 @@
         .rotate-anim { transition: transform 0.3s ease; }
         .rotate-anim:active { transform: rotate(180deg); }
         .map-frame { border: 0; width: 100%; height: 100%; border-radius: 12px; }
+        /* 分頁切換動畫 */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+        .fade-enter, .fade-leave-to { opacity: 0; }
     </style>
 </head>
 <body>
@@ -382,4 +397,5 @@
         }
     </script>
 </body>
+
 </html>
