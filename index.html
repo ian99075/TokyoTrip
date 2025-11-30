@@ -9,7 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="東京之旅">
-    <meta name="theme-color" content="#111827"> <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#111827">
+    <meta name="format-detection" content="telephone=no">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2249/2249723.png"> 
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,10 +27,10 @@
         .rotate-anim:active { transform: rotate(180deg); }
         .map-frame { border: 0; width: 100%; height: 100%; border-radius: 12px; }
         
-        /* ✨ 航班視覺化特定樣式 */
+        /* 航班視覺化樣式 */
         .flight-line { height: 2px; background-color: #cbd5e1; position: relative; width: 100%; margin-top: 4px; }
         .flight-line::after { content: ''; position: absolute; right: 0; top: -3px; width: 8px; height: 8px; background-color: #cbd5e1; border-radius: 50%; }
-        .flight-time { font-family: 'Roboto', sans-serif; font-weight: 500; color: #0f766e; } /* 深青色 */
+        .flight-time { font-family: 'Roboto', sans-serif; font-weight: 500; color: #0f766e; }
     </style>
 </head>
 <body>
@@ -77,10 +78,10 @@
                     <div x-show="!isEditingInfo" class="space-y-6 px-1">
                         
                         <div>
-                            <div class="flex justify-between items-center text-xs text-gray-500 mb-1">
-                                <span class="bg-blue-100 text-blue-600 px-1 rounded text-[10px] font-bold">去程</span>
-                                <span class="font-bold text-gray-700" x-text="travelInfo.flightOut.date"></span>
-                                <span><span x-text="travelInfo.flightOut.airline"></span> <span x-text="travelInfo.flightOut.no"></span></span>
+                            <div class="flex items-center text-xs text-gray-500 mb-1">
+                                <div class="w-1/4"><span class="bg-blue-100 text-blue-600 px-1 rounded text-[10px] font-bold">去程</span></div>
+                                <div class="w-2/4 text-center font-bold text-gray-700" x-text="travelInfo.flightOut.date"></div>
+                                <div class="w-1/4 text-right"><span x-text="travelInfo.flightOut.airline"></span> <span x-text="travelInfo.flightOut.no"></span></div>
                             </div>
                             <div class="flex justify-between items-center mt-2">
                                 <div class="text-center">
@@ -104,10 +105,10 @@
                         <div class="border-t border-dashed border-blue-200"></div>
 
                         <div>
-                            <div class="flex justify-between items-center text-xs text-gray-500 mb-1">
-                                <span class="bg-blue-100 text-blue-600 px-1 rounded text-[10px] font-bold">回程</span>
-                                <span class="font-bold text-gray-700" x-text="travelInfo.flightIn.date"></span>
-                                <span><span x-text="travelInfo.flightIn.airline"></span> <span x-text="travelInfo.flightIn.no"></span></span>
+                            <div class="flex items-center text-xs text-gray-500 mb-1">
+                                <div class="w-1/4"><span class="bg-blue-100 text-blue-600 px-1 rounded text-[10px] font-bold">回程</span></div>
+                                <div class="w-2/4 text-center font-bold text-gray-700" x-text="travelInfo.flightIn.date"></div>
+                                <div class="w-1/4 text-right"><span x-text="travelInfo.flightIn.airline"></span> <span x-text="travelInfo.flightIn.no"></span></div>
                             </div>
                             <div class="flex justify-between items-center mt-2">
                                 <div class="text-center">
@@ -117,7 +118,7 @@
                                 <div class="flex-1 px-4 flex flex-col items-center">
                                     <span class="text-[10px] text-gray-400 mb-1" x-text="calculateDuration(travelInfo.flightIn.depTime, travelInfo.flightIn.arrTime)"></span>
                                     <div class="flex items-center w-full">
-                                        <i class="fas fa-plane text-blue-400 text-sm mr-2 transform rotate-180"></i>
+                                        <i class="fas fa-plane text-blue-400 text-sm mr-2"></i>
                                         <div class="flight-line"></div>
                                     </div>
                                 </div>
@@ -148,7 +149,10 @@
                                 <select x-model="travelInfo.flightOut.airline" class="w-1/2 p-1 bg-gray-50 border border-gray-300 rounded text-xs"><option value="">航空公司...</option><template x-for="air in airlineOptions"><option :value="air" x-text="air"></option></template></select>
                                 <input x-model="travelInfo.flightOut.no" placeholder="航班號 (BR198)" class="w-1/2 p-1 border border-gray-300 rounded text-xs">
                             </div>
-                            <div class="flex space-x-2 mb-2"><input x-model="travelInfo.flightOut.date" type="date" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
+                            <div class="mb-2">
+                                <label class="text-[10px] text-gray-400 block mb-1">出發日期</label>
+                                <input x-model="travelInfo.flightOut.date" type="date" class="w-full p-1 border border-gray-300 rounded text-xs">
+                            </div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div><label class="text-[10px] text-gray-400">出發時間</label><input x-model="travelInfo.flightOut.depTime" type="time" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
                                 <div><label class="text-[10px] text-gray-400">抵達時間</label><input x-model="travelInfo.flightOut.arrTime" type="time" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
@@ -165,7 +169,10 @@
                                 <select x-model="travelInfo.flightIn.airline" class="w-1/2 p-1 bg-gray-50 border border-gray-300 rounded text-xs"><option value="">航空公司...</option><template x-for="air in airlineOptions"><option :value="air" x-text="air"></option></template></select>
                                 <input x-model="travelInfo.flightIn.no" placeholder="航班號 (BR197)" class="w-1/2 p-1 border border-gray-300 rounded text-xs">
                             </div>
-                            <div class="flex space-x-2 mb-2"><input x-model="travelInfo.flightIn.date" type="date" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
+                            <div class="mb-2">
+                                <label class="text-[10px] text-gray-400 block mb-1">出發日期</label>
+                                <input x-model="travelInfo.flightIn.date" type="date" class="w-full p-1 border border-gray-300 rounded text-xs">
+                            </div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div><label class="text-[10px] text-gray-400">出發時間</label><input x-model="travelInfo.flightIn.depTime" type="time" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
                                 <div><label class="text-[10px] text-gray-400">抵達時間</label><input x-model="travelInfo.flightIn.arrTime" type="time" class="w-full p-1 border border-gray-300 rounded text-xs"></div>
@@ -204,7 +211,6 @@
                 <button @click="showDayRoute(currentDay)" class="w-full py-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-200 text-sm font-bold flex items-center justify-center hover:bg-blue-100 transition">
                     <i class="fas fa-route mr-2"></i>在地圖上顯示今日路線
                 </button>
-                
                 <div class="space-y-3">
                     <template x-for="(event, index) in getEvents(currentDay)" :key="index">
                         <div class="card flex items-start space-x-3 relative group">
@@ -300,7 +306,7 @@
                 </div>
                 <div class="flex space-x-2 mt-4"><button @click="showSettingsModal = false" class="flex-1 py-2 text-gray-500">取消</button><button @click="saveTripSettings()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold">儲存</button></div>
                 <div class="mt-6 pt-4 border-t border-gray-100 text-center">
-                    <button @click="resetData()" class="text-xs text-red-400 hover:text-red-600 underline"><i class="fas fa-trash-alt mr-1"></i>清除所有資料並重置</button>
+                    <button @click="resetData()" class="text-xs text-red-400 hover:text-red-600 underline tracking-wide"><i class="fas fa-trash-alt mr-1"></i>清除所有資料並重置</button>
                 </div>
             </div>
         </div>
@@ -360,13 +366,14 @@
                     date.setDate(date.getDate() + (dayIndex - 1));
                     return `${date.getMonth() + 1}/${date.getDate()}`;
                 },
+                // ✨ 計算飛行時間
                 calculateDuration(start, end) {
                     if (!start || !end) return '';
                     let [sH, sM] = start.split(':').map(Number);
                     let [eH, eM] = end.split(':').map(Number);
                     let startMin = sH * 60 + sM;
                     let endMin = eH * 60 + eM;
-                    if (endMin < startMin) endMin += 24 * 60;
+                    if (endMin < startMin) endMin += 24 * 60; // 跨日處理
                     let diff = endMin - startMin;
                     let h = Math.floor(diff / 60);
                     let m = diff % 60;
@@ -382,7 +389,7 @@
                     if (savedShopping) this.shoppingList = JSON.parse(savedShopping);
                     else this.shoppingList = [{ name: '安耐曬防曬', price: 2500, bought: false }];
                     if (savedItinerary) this.itinerary = JSON.parse(savedItinerary);
-                    else this.itinerary = {}; 
+                    else this.itinerary = {}; // 預設空白行程
                     if (savedPrep) this.prepList = JSON.parse(savedPrep);
                     else this.prepList = [{ name: '護照', done: false }, { name: 'Visit Japan Web', done: false }, { name: '現金 / 信用卡', done: false }, { name: '網卡', done: false }];
                     if (savedInfo) { 
@@ -413,7 +420,7 @@
                 searchInMap(location) { if(!location) return; this.mapSearchQuery = location; this.currentTab = 'map'; this.updateMap(); },
                 showDayRoute(day) { const events = this.itinerary[day] || []; if (events.length === 0) { alert('該日尚無行程。'); return; } if (events.length === 1) { this.searchInMap(events[0].title); return; } const start = events[0].title; const end = events[events.length - 1].title; this.isMapLoading = true; this.currentTab = 'map'; this.mapUrl = 'https://maps.google.com/maps?q=from:' + encodeURIComponent(start) + '+to:' + encodeURIComponent(end) + '&output=embed'; setTimeout(() => { this.isMapLoading = false; }, 1500); },
                 calculateExchange() { if (!this.convertInput) return 0; return this.isJpyToTwd ? Math.round(this.convertInput * this.exchangeRate) : Math.round(this.convertInput / this.exchangeRate); },
-                async fetchRealTimeData() { this.isLoading = true; this.weatherText = '...'; try { const rateRes = await fetch('https://api.exchangerate-api.com/v4/latest/JPY'); const rateData = await rateRes.json(); if(rateData && rateData.rates && rateData.rates.TWD) { this.exchangeRate = rateData.rates.TWD; this.rateDate = rateData.date; } } catch (e) { console.error(e); } try { const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.6917&current_weather=true'); const weatherData = await weatherRes.json(); if(weatherData && weatherData.current_weather) { this.weatherText = `${weatherData.current_weather.temperature}°`; } } catch (e) { this.weatherText = '--'; } this.isLoading = false; },
+                async fetchRealTimeData() { this.isLoading = true; this.weatherText = '...'; try { const rateRes = await fetch('https://api.exchangerate-api.com/v4/latest/JPY'); const rateData = await rateRes.json(); if(rateData && rateData.rates && rateData.rates.TWD) { this.exchangeRate = rateData.rates.TWD; this.rateDate = rateData.date; } } catch (e) { console.error(e); } try { const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.6917&current_weather=true'); const weatherData = await weatherRes.json(); if(weatherData && weatherData.current_weather) { this.weatherText = '東京 ' + weatherData.current_weather.temperature + '°C'; } } catch (e) { this.weatherText = '--'; } this.isLoading = false; },
                 get shoppingTotal() { return this.shoppingList.filter(item => item.bought).reduce((sum, item) => sum + parseInt(item.price || 0), 0); },
                 addNewItem() { if (!this.newItemName) return; this.shoppingList.push({ name: this.newItemName, price: this.newItemPrice || 0, bought: false }); this.newItemName = ''; this.newItemPrice = ''; this.saveData(); },
                 deleteItem(index) { this.shoppingList.splice(index, 1); this.saveData(); },
