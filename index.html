@@ -29,7 +29,6 @@
             min-height: 100vh;
             font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
             background-color: #f3f4f6; 
-            /* 移除 overflow: hidden, position: fixed 等鎖定語法 */
         }
 
         .app-container { 
@@ -69,7 +68,7 @@
         .flight-time { font-family: 'Roboto', sans-serif; font-weight: 500; color: #0f766e; }
         
         /* 歡迎彈窗背景 (半透明黑) */
-        .welcome-overlay { background-color: rgba(17, 24, 39, 0.9); backdrop-filter: blur(4px); }
+        .welcome-overlay { background-color: rgba(17, 24, 39, 0.95); backdrop-filter: blur(4px); }
 
         /* ✨ 磨砂玻璃效果 (Header 用) */
         .glass-panel {
@@ -129,7 +128,8 @@
                 prepList: [],
                 itinerary: {},
                 travelInfo: { flightOut: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'TPE', arrAirport: 'NRT' }, flightIn: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'NRT', arrAirport: 'TPE' }, hotel: { name: '', address: '' } },
-                newItemName: '', newItemPrice: '', newPrepItem: '', newEvent: { time: '10:00', title: '', location: '' },
+                // 更新 newEvent 結構，加入 subtitle
+                newItemName: '', newItemPrice: '', newPrepItem: '', newEvent: { time: '10:00', title: '', subtitle: '', location: '' },
                 mapSearchQuery: '', mapUrl: 'https://maps.google.com/maps?q=Tokyo&output=embed', isMapLoading: false,
 
                 cityCoordinates: { '東京': { lat: 35.6895, lon: 139.6917 }, '大阪': { lat: 34.6937, lon: 135.5023 }, '京都': { lat: 35.0116, lon: 135.7681 }, '北海道': { lat: 43.0618, lon: 141.3545 }, '福岡': { lat: 33.5902, lon: 130.4017 }, '沖繩': { lat: 26.2124, lon: 127.6809 }, '首爾': { lat: 37.5665, lon: 126.9780 }, '台北': { lat: 25.0330, lon: 121.5654 }, '曼谷': { lat: 13.7563, lon: 100.5018 } },
@@ -272,13 +272,11 @@
                     if (savedInfo) this.travelInfo = JSON.parse(savedInfo);
                 },
 
-                // 核心修正：開啟設定時複製到 tempSettings
                 openSettings() {
                     this.tempSettings = JSON.parse(JSON.stringify(this.tripSettings));
                     this.showSettingsModal = true;
                 },
 
-                // 核心修正：確認後才將 tempSettings 寫回 tripSettings
                 saveTripSettings() { 
                     this.tripSettings = JSON.parse(JSON.stringify(this.tempSettings));
                     this.saveData(); 
@@ -299,6 +297,81 @@
                         localStorage.removeItem('tokyo_theme');
                         location.reload();
                     }
+                },
+
+                exportData() {
+                    const data = {
+                        shopping: this.shoppingList,
+                        itinerary: this.itinerary,
+                        prep: this.prepList,
+                        info: this.travelInfo,
+                        settings: this.tripSettings,
+                        theme: this.currentTheme
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `travel_backup_${this.tripSettings.title || 'trip'}_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                },
+
+                triggerImport() {
+                    this.$refs.fileInput.click();
+                },
+
+                // 核心修正：使用 self = this 確保作用域正確，並在匯入後強制更新 UI 狀態
+                handleImport(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    const self = this; // 鎖定 this
+                    
+                    reader.onload = (e) => {
+                        try {
+                            const jsonContent = e.target.result;
+                            const data = JSON.parse(jsonContent);
+                            
+                            if (!data || !data.settings) {
+                                alert('❌ 檔案格式錯誤：這似乎不是有效的備份檔。');
+                                return;
+                            }
+
+                            if (!confirm(`確定要匯入「${data.settings.title || '未命名行程'}」嗎？\n這將會覆蓋您目前的資料。`)) {
+                                return;
+                            }
+
+                            self.shoppingList = data.shopping || [];
+                            self.itinerary = data.itinerary || {};
+                            self.prepList = data.prep || [];
+                            self.travelInfo = data.info || {};
+                            self.tripSettings = data.settings || {};
+                            self.currentTheme = data.theme || 'default';
+                            
+                            self.saveData();
+                            self.setTheme(self.currentTheme);
+                            self.fetchRealTimeData();
+                            self.autoUpdateMapByDest();
+                            
+                            // 強制關閉所有 Modal
+                            self.showSettingsModal = false;
+                            self.showWelcomeModal = false;
+                            
+                            alert('✅ 匯入成功！');
+                            
+                        } catch (err) {
+                            console.error('Import error:', err);
+                            alert('❌ 匯入失敗：檔案無法讀取或格式損毀。');
+                        } finally {
+                            event.target.value = ''; // 重置 input 確保下次能再選
+                        }
+                    };
+                    
+                    reader.readAsText(file);
                 },
 
                 addPrepItem() { if(!this.newPrepItem) return; this.prepList.push({ name: this.newPrepItem, done: false }); this.newPrepItem = ''; this.saveData(); },
@@ -362,12 +435,10 @@
                     this.isLoading = false;
                 },
                 
-                // 新增：開啟免稅設定視窗
                 openTaxModal() {
                     this.tempTaxLimit = this.tripSettings.taxFreeLimit;
                     this.showTaxModal = true;
                 },
-                // 新增：儲存免稅設定
                 saveTaxLimit() {
                     this.tripSettings.taxFreeLimit = parseInt(this.tempTaxLimit) || 0;
                     this.saveData();
@@ -378,7 +449,8 @@
                 addNewItem() { if (!this.newItemName) return; this.shoppingList.push({ name: this.newItemName, price: this.newItemPrice || 0, bought: false }); this.newItemName = ''; this.newItemPrice = ''; this.saveData(); },
                 deleteItem(index) { this.shoppingList.splice(index, 1); this.saveData(); },
                 getEvents(day) { return (this.itinerary[day] || []).sort((a, b) => a.time.localeCompare(b.time)); },
-                addEvent() { if (!this.itinerary[this.currentDay]) this.itinerary[this.currentDay] = []; this.itinerary[this.currentDay].push({ ...this.newEvent }); this.showAddEventModal = false; this.newEvent = { time: '10:00', title: '', location: '' }; this.saveData(); },
+                // 更新 addEvent，加入 subtitle 重置
+                addEvent() { if (!this.itinerary[this.currentDay]) this.itinerary[this.currentDay] = []; this.itinerary[this.currentDay].push({ ...this.newEvent }); this.showAddEventModal = false; this.newEvent = { time: '10:00', title: '', subtitle: '', location: '' }; this.saveData(); },
                 deleteEvent(day, index) { this.itinerary[day].splice(index, 1); this.saveData(); },
                 saveData() { 
                     localStorage.setItem('tokyo_shopping', JSON.stringify(this.shoppingList)); 
@@ -396,18 +468,18 @@
 
     <div x-data="travelApp()" x-init="initApp()" class="app-container" x-cloak>
         
-        <!-- 頂部資訊欄 (自然流動，不強制固定) -->
+        <!-- 檔案輸入框移到最外層，確保隨時可觸發 -->
+        <input type="file" x-ref="fileInput" @change="handleImport($event)" accept=".json" class="hidden">
+
+        <!-- 頂部資訊欄 -->
         <header class="text-white p-5 rounded-b-3xl shadow-lg relative overflow-hidden transition-colors duration-500"
                 :class="themes[currentTheme].header">
             
             <div class="absolute top-0 right-0 p-4 opacity-20"><i class="fas fa-plane-departure fa-5x"></i></div>
             <div class="relative z-10">
                 <div class="flex justify-between items-start">
-                    <!-- 年份標籤 -->
                     <span class="text-xs font-bold px-2 py-1 rounded text-white bg-blue-600 shadow-sm" x-text="getYear() + ' TRIP'"></span>
-                    
                     <div class="flex space-x-2">
-                        <!-- 修改：點擊設定改為呼叫 openSettings() -->
                         <button @click="openSettings()" class="text-xs bg-black/20 hover:bg-black/30 px-2 py-1 rounded transition backdrop-blur-md flex items-center">
                             <i class="fas fa-cog mr-1"></i> 設定
                         </button>
@@ -417,10 +489,7 @@
                     </div>
                 </div>
                 
-                <!-- 標題 -->
                 <h1 class="text-2xl font-bold mt-3 mb-1" x-text="tripSettings.title"></h1>
-                
-                <!-- 地點與日期 -->
                 <p class="text-sm opacity-80 flex items-center">
                     <i class="fas fa-map-marker-alt mr-1"></i> <span x-text="tripSettings.destination"></span> 
                     <span class="mx-2">|</span> 
@@ -428,7 +497,6 @@
                 </p>
                 
                 <div class="mt-4 flex space-x-3 h-20">
-                    <!-- 天氣顯示區塊 -->
                     <div class="glass-panel rounded-xl p-2 flex-1 flex items-center justify-between px-4">
                         <div class="flex items-center w-full justify-center space-x-3">
                             <i class="fas text-3xl drop-shadow-md" :class="weatherIcon"></i>
@@ -442,8 +510,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- 匯率區塊 -->
                     <div class="glass-panel rounded-xl p-2 flex-1 text-center flex flex-col justify-center items-center">
                         <i class="fas fa-yen-sign text-green-400 text-xl mb-1 drop-shadow-sm"></i>
                         <div class="text-base font-bold text-white drop-shadow-sm">
@@ -455,9 +521,8 @@
             </div>
         </header>
 
-        <!-- 內容區域：自然高度擴展 -->
+        <!-- 內容區域 -->
         <div class="p-4 relative">
-            
             <!-- 1. 行程分頁 -->
             <div x-show="currentTab === 'trip'" class="space-y-4">
                 <div class="card bg-blue-50 border-blue-100 relative">
@@ -579,12 +644,27 @@
                     <template x-for="(event, index) in getEvents(currentDay)" :key="index">
                         <div class="card flex items-start space-x-3 relative group">
                             <div class="text-gray-500 font-mono text-sm pt-1 w-12" x-text="event.time"></div>
-                            <div class="flex-1 pr-6">
-                                <h3 class="font-bold text-gray-800" x-text="event.title"></h3>
-                                <button @click="searchInMap(event.title + ' ' + event.location)" class="text-xs mt-1 flex items-center hover:underline text-left transition" :class="themes[currentTheme].text">
-                                    <i class="fas fa-map-marker-alt mr-1"></i> <span x-text="event.location || '在地圖中查看'"></span>
+                            
+                            <!-- 修正：更新後的行程卡片佈局 (小標題為主，地點為輔) -->
+                            <div class="flex-1 pr-6 flex flex-col">
+                                <!-- 1. 小標題 (Subtitle) 當作主標題。如果沒有小標題，則地點名稱 (Title) 遞補為主標題 -->
+                                <h3 class="font-bold text-gray-800 text-base leading-tight" x-text="event.subtitle || event.title"></h3>
+
+                                <!-- 2. 地點名稱 (Title) 縮小並加上圖示，移至下方。只在有小標題時顯示 (避免與上方重複) -->
+                                <div x-show="event.subtitle" class="mt-1 flex items-center text-xs font-bold transition-colors" :class="themes[currentTheme].text">
+                                    <i class="fas fa-map-marker-alt mr-1.5 opacity-80"></i>
+                                    <span x-text="event.title"></span>
+                                </div>
+                                
+                                <!-- 3. 備註詳情 (Note) - 加上左邊線增加層次感 -->
+                                <p x-show="event.location" class="text-xs text-gray-400 mt-1.5 leading-normal border-l-2 border-gray-100 pl-2 ml-0.5" x-text="event.location"></p>
+
+                                <!-- 地圖導航按鈕 -->
+                                <button @click="searchInMap(event.title)" class="text-[10px] bg-gray-50 border border-gray-200 text-gray-500 px-2.5 py-1.5 rounded-lg flex items-center hover:bg-gray-100 transition w-fit mt-2 shadow-sm">
+                                    <i class="fas fa-location-arrow mr-1.5 text-blue-400"></i> 導航
                                 </button>
                             </div>
+
                             <button @click="deleteEvent(currentDay, index)" class="text-gray-300 hover:text-red-500 absolute top-2 right-2"><i class="fas fa-times"></i></button>
                         </div>
                     </template>
@@ -592,7 +672,7 @@
                 </div>
             </div>
 
-            <!-- 2. 地圖分頁 (自然流動高度) -->
+            <!-- 2. 地圖分頁 -->
             <div x-show="currentTab === 'map'" class="space-y-3">
                 <div class="flex space-x-2">
                     <input type="text" x-model="mapSearchQuery" @keyup.enter="updateMap()" placeholder="輸入地點" class="flex-1 p-2 border rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-200">
@@ -633,16 +713,13 @@
                     <div class="rounded-2xl p-4 text-white shadow-lg transition-colors duration-500" :class="themes[currentTheme].gradient">
                         <div class="flex justify-between items-end"><div><p class="text-xs opacity-80 mb-1">購物總金額 (JPY)</p><h2 class="text-3xl font-bold">¥<span x-text="shoppingTotal.toLocaleString()"></span></h2></div><div class="text-right"><p class="text-xs opacity-80">約台幣</p><p class="font-bold">NT$ <span x-text="Math.round(shoppingTotal * exchangeRate).toLocaleString()"></span></p></div></div>
                         
-                        <!-- 免稅門檻 (改為 Modal 觸發) -->
                         <div class="mt-3 pt-3 border-t border-white/20">
                             <div class="flex items-center justify-between text-sm mb-1">
-                                <!-- 改為點擊開啟 Modal，並加上編輯圖示 -->
                                 <div class="flex items-center space-x-2 cursor-pointer hover:text-white/80 transition" @click="openTaxModal()">
                                     <span>免稅門檻</span>
                                     <span class="font-mono font-bold">¥<span x-text="parseInt(tripSettings.taxFreeLimit).toLocaleString()"></span></span>
                                     <i class="fas fa-pen-to-square text-xs opacity-70"></i>
                                 </div>
-                                
                                 <span x-show="shoppingTotal >= tripSettings.taxFreeLimit" class="bg-white/20 px-2 py-0.5 rounded text-xs font-bold">✅ 已達標</span>
                                 <span x-show="shoppingTotal < tripSettings.taxFreeLimit" class="text-white/80 text-xs">還差 ¥<span x-text="(tripSettings.taxFreeLimit - shoppingTotal).toLocaleString()"></span></span>
                             </div>
@@ -684,7 +761,7 @@
             </div>
         </div>
 
-        <!-- 底部導航 (改為 Absolute 定位，隨容器移動) -->
+        <!-- 底部導航 -->
         <nav class="bottom-nav flex justify-around items-center py-3 pb-6 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
             <button @click="currentTab = 'trip'" :class="currentTab === 'trip' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-map-marked-alt text-xl mb-1"></i><span class="text-xs">行程</span></button>
             <button @click="currentTab = 'map'" :class="currentTab === 'map' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-map text-xl mb-1"></i><span class="text-xs">地圖</span></button>
@@ -710,12 +787,20 @@
                     </div>
                 </div>
                 <button @click="initializeTrip()" class="w-full text-white py-3.5 rounded-lg mt-8 font-bold tracking-widest shadow-lg hover:opacity-90 transform transition active:scale-95 bg-blue-600">建立行程</button>
+                
+                <!-- 新增：歡迎頁面的匯入選項 -->
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <p class="text-xs text-gray-400 mb-2">已經有備份檔？</p>
+                    <button @click="triggerImport()" class="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg text-xs font-bold tracking-wide hover:bg-gray-200 transition">
+                        <i class="fas fa-file-import mr-1.5"></i>匯入備份檔案
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- 設定 Modal -->
         <div x-show="showSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
-            <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
                 <h3 class="font-bold text-lg mb-4">⚙️ 設定與主題</h3>
                 
                 <div class="mb-6">
@@ -733,28 +818,44 @@
                 </div>
 
                 <div class="space-y-3 border-t border-gray-100 pt-4">
-                    <!-- 修正綁定：改為 tempSettings -->
                     <div><label class="text-xs text-gray-500">旅程名稱</label><input x-model="tempSettings.title" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs text-gray-500">目的地</label><input x-model="tempSettings.destination" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs text-gray-500">開始日期</label><input x-model="tempSettings.startDate" type="date" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs text-gray-500">結束日期</label><input x-model="tempSettings.endDate" type="date" class="w-full border p-2 rounded"></div>
                 </div>
-                <div class="flex space-x-2 mt-4"><button @click="showSettingsModal = false" class="flex-1 py-2 border border-gray-300 text-gray-500 text-xs font-bold rounded-sm hover:bg-gray-50">取消</button><button @click="saveTripSettings()" class="flex-1 py-2 text-white text-xs font-bold rounded-sm shadow-sm" :class="themes[currentTheme].bg">確定</button></div>
-                <div class="mt-6 pt-4 border-t border-gray-100 text-center"><button @click="resetData()" class="text-xs text-red-400 hover:text-red-600 underline tracking-wide"><i class="fas fa-trash-alt mr-1"></i>清除所有資料並重置</button></div>
+
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <label class="text-xs text-gray-500 mb-2 block">資料備份與分享</label>
+                    <div class="flex space-x-2">
+                        <button @click="exportData()" class="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
+                            <i class="fas fa-file-export mr-1.5"></i> 匯出備份
+                        </button>
+                        <button @click="triggerImport()" class="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
+                            <i class="fas fa-file-import mr-1.5"></i> 匯入資料
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 mt-6 pt-4 border-t border-gray-100">
+                    <button @click="showSettingsModal = false" class="flex-1 py-2 border border-gray-300 text-gray-500 text-xs font-bold rounded-sm hover:bg-gray-50">取消</button>
+                    <button @click="saveTripSettings()" class="flex-1 py-2 text-white text-xs font-bold rounded-sm shadow-sm" :class="themes[currentTheme].bg">確定</button>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <button @click="resetData()" class="text-xs text-red-400 hover:text-red-600 underline tracking-wide"><i class="fas fa-trash-alt mr-1"></i>清除所有資料並重置</button>
+                </div>
             </div>
         </div>
 
-        <!-- 免稅門檻設定 Modal (新增) -->
+        <!-- 免稅門檻設定 Modal -->
         <div x-show="showTaxModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
             <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
                 <h3 class="font-bold text-lg mb-4 text-gray-800">💰 設定免稅門檻</h3>
                 <p class="text-xs text-gray-500 mb-4">請輸入目標免稅金額 (日幣)，系統將自動計算差額。</p>
-                
                 <div class="relative mb-6">
                     <span class="absolute left-3 top-2 text-gray-400 font-bold">¥</span>
                     <input x-model="tempTaxLimit" type="number" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold text-gray-700">
                 </div>
-
                 <div class="flex space-x-3">
                     <button @click="showTaxModal = false" class="flex-1 py-2.5 border border-gray-300 text-gray-500 text-sm font-bold rounded-lg hover:bg-gray-50 transition">取消</button>
                     <button @click="saveTaxLimit()" class="flex-1 py-2.5 text-white text-sm font-bold rounded-lg shadow-md transition transform active:scale-95" :class="themes[currentTheme].bg">儲存設定</button>
@@ -767,9 +868,29 @@
             <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
                 <h3 class="font-bold text-lg mb-4">新增 Day <span x-text="currentDay"></span> 行程</h3>
                 <div class="space-y-4">
-                    <div><label class="text-[10px] font-bold text-gray-400 block mb-1">時間</label><input x-model="newEvent.time" type="time" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700 font-mono"></div>
-                    <div><label class="text-[10px] font-bold text-gray-400 block mb-1">地點名稱</label><input x-model="newEvent.title" type="text" placeholder="例如: 淺草寺" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700"></div>
-                    <div><label class="text-[10px] font-bold text-gray-400 block mb-1">備註詳情</label><input x-model="newEvent.location" type="text" placeholder="例如: 雷門集合" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700"></div>
+                    <!-- 1. 時間 -->
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-1">時間</label>
+                        <input x-model="newEvent.time" type="time" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700 font-mono">
+                    </div>
+
+                    <!-- 2. 小標題 (視覺上的主標題) - 移到地點之前 -->
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-1">行程主題 (顯示為大標題)</label>
+                        <input x-model="newEvent.subtitle" type="text" placeholder="例如: 參拜、午餐、逛街" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700">
+                    </div>
+
+                    <!-- 3. 地點名稱 (視覺上的次標題 + 定位) -->
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-1">地點 / 定位名稱</label>
+                        <input x-model="newEvent.title" type="text" placeholder="例如: 淺草寺 (用於地圖導航)" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700">
+                    </div>
+                    
+                    <!-- 4. 備註 -->
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-1">備註詳情</label>
+                        <input x-model="newEvent.location" type="text" placeholder="例如: 雷門集合、記得帶御朱印帳" class="w-full border border-gray-300 rounded-sm p-2 bg-gray-50 focus:outline-none text-gray-700">
+                    </div>
                 </div>
                 <div class="flex space-x-3 mt-8">
                     <button @click="showAddEventModal = false" class="flex-1 py-2 border border-gray-300 text-gray-500 text-xs font-bold rounded-sm hover:bg-gray-50">取消</button>
