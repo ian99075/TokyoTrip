@@ -31,6 +31,33 @@
             background-color: #f3f4f6; 
         }
 
+        /* 字體風格與大小調整 CSS */
+        .font-serif-mode { 
+            font-family: 'Songti TC', 'Noto Serif TC', 'PMingLiU', serif !important; 
+        }
+        
+        /* 大字體模式：強制放大常用的 Tailwind 文字級距 */
+        .app-large-text .text-[9px],
+        .app-large-text .text-[10px],
+        .app-large-text .text-xs { 
+            font-size: 0.95rem !important; 
+            line-height: 1.4 !important;
+        }
+        .app-large-text .text-sm { 
+            font-size: 1.05rem !important; 
+            line-height: 1.5 !important;
+        }
+        .app-large-text .text-base { 
+            font-size: 1.15rem !important; 
+        }
+        .app-large-text .text-lg { 
+            font-size: 1.25rem !important; 
+        }
+        /* 調整大字體下的間距，避免太擠 */
+        .app-large-text .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 1.25rem;
+        }
+
         .app-container { 
             max-width: 480px; 
             margin: 0 auto; 
@@ -113,6 +140,13 @@
                 showShareModal: false,
                 shareMode: 'export', 
                 shareText: '',
+
+                // 外觀設定
+                appearance: { fontSize: 'normal', fontStyle: 'sans' },
+
+                // 新增：暫存變數 (用於設定視窗)
+                tempTheme: 'default',
+                tempAppearance: { fontSize: 'normal', fontStyle: 'sans' },
 
                 // 新增：日文短句資料
                 phrases: [
@@ -237,9 +271,14 @@
                 initApp() {
                     const savedSettings = localStorage.getItem('tokyo_settings');
                     const savedTheme = localStorage.getItem('tokyo_theme');
+                    const savedAppearance = localStorage.getItem('tokyo_appearance'); // 新增
                     
                     if (savedTheme && this.themes[savedTheme]) {
                         this.setTheme(savedTheme);
+                    }
+
+                    if (savedAppearance) { // 新增
+                        this.appearance = JSON.parse(savedAppearance);
                     }
 
                     if (!savedSettings) {
@@ -323,18 +362,28 @@
                     if (savedInfo) this.travelInfo = JSON.parse(savedInfo);
                 },
 
+                // 核心修正：開啟設定時初始化暫存變數
                 openSettings() {
                     this.tempSettings = JSON.parse(JSON.stringify(this.tripSettings));
+                    this.tempTheme = this.currentTheme; // 複製當前主題
+                    this.tempAppearance = JSON.parse(JSON.stringify(this.appearance)); // 複製當前外觀
                     this.showSettingsModal = true;
                 },
 
+                // 核心修正：確認後才套用暫存變數到正式變數
                 saveTripSettings() { 
                     this.tripSettings = JSON.parse(JSON.stringify(this.tempSettings));
+                    
+                    // 套用外觀
+                    this.appearance = JSON.parse(JSON.stringify(this.tempAppearance));
+                    
+                    // 套用主題 (這會更新 currentTheme 並觸發 CSS 變更)
+                    this.setTheme(this.tempTheme);
+                    
                     this.saveData(); 
                     this.showSettingsModal = false; 
                     this.generatePrepList(); 
                     this.autoUpdateMapByDest(); 
-                    this.saveData(); 
                     this.fetchRealTimeData(); 
                 },
                 
@@ -346,6 +395,7 @@
                         localStorage.removeItem('tokyo_info');
                         localStorage.removeItem('tokyo_settings');
                         localStorage.removeItem('tokyo_theme');
+                        localStorage.removeItem('tokyo_appearance'); // 新增
                         location.reload();
                     }
                 },
@@ -358,7 +408,8 @@
                         prep: this.prepList,
                         info: this.travelInfo,
                         settings: this.tripSettings,
-                        theme: this.currentTheme
+                        theme: this.currentTheme,
+                        appearance: this.appearance // 加入外觀設定備份
                     };
                     this.shareText = JSON.stringify(data);
                     this.shareMode = 'export';
@@ -389,6 +440,7 @@
                         this.travelInfo = data.info || {};
                         this.tripSettings = data.settings || {};
                         this.currentTheme = data.theme || 'default';
+                        if (data.appearance) this.appearance = data.appearance; // 匯入外觀
                         
                         this.saveData();
                         this.setTheme(this.currentTheme);
@@ -422,7 +474,8 @@
                         prep: this.prepList,
                         info: this.travelInfo,
                         settings: this.tripSettings,
-                        theme: this.currentTheme
+                        theme: this.currentTheme,
+                        appearance: this.appearance // 匯出外觀
                     };
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
@@ -466,6 +519,7 @@
                             self.travelInfo = data.info || {};
                             self.tripSettings = data.settings || {};
                             self.currentTheme = data.theme || 'default';
+                            if (data.appearance) self.appearance = data.appearance; // 匯入外觀
                             
                             self.saveData();
                             self.setTheme(self.currentTheme);
@@ -559,6 +613,25 @@
                     this.showTaxModal = false;
                 },
 
+                // 新增：計算兩個時間點的時間差
+                getTimeDifference(start, end) {
+                    if (!start || !end) return '';
+                    const [h1, m1] = start.split(':').map(Number);
+                    const [h2, m2] = end.split(':').map(Number);
+                    let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+                    if (diff < 0) diff += 24 * 60; // 處理跨日或排序問題
+                    
+                    const h = Math.floor(diff / 60);
+                    const m = diff % 60;
+                    
+                    if (h === 0 && m === 0) return '緊湊';
+                    
+                    let res = '';
+                    if (h > 0) res += `${h}小時`;
+                    if (m > 0) res += `${m}分`;
+                    return res;
+                },
+
                 // 新增：旅遊資訊編輯視窗邏輯
                 openInfoModal() {
                     // 深層複製避免參照問題
@@ -585,7 +658,8 @@
                     localStorage.setItem('tokyo_prep', JSON.stringify(this.prepList)); 
                     localStorage.setItem('tokyo_info', JSON.stringify(this.travelInfo)); 
                     localStorage.setItem('tokyo_settings', JSON.stringify(this.tripSettings));
-                    localStorage.setItem('tokyo_theme', this.currentTheme); 
+                    localStorage.setItem('tokyo_theme', this.currentTheme);
+                    localStorage.setItem('tokyo_appearance', JSON.stringify(this.appearance)); // 新增
                 }
             }
         }
@@ -593,7 +667,8 @@
 </head>
 <body>
 
-    <div x-data="travelApp()" x-init="initApp()" class="app-container" x-cloak>
+    <div x-data="travelApp()" x-init="initApp()" class="app-container" x-cloak 
+         :class="[appearance.fontSize === 'large' ? 'app-large-text' : '', appearance.fontStyle === 'serif' ? 'font-serif-mode' : '']">
         
         <!-- 檔案輸入框移到最外層，確保隨時可觸發 -->
         <input type="file" x-ref="fileInput" @change="handleImport($event)" accept=".json" class="hidden">
@@ -797,36 +872,55 @@
                     <i class="fas fa-route mr-2" :class="themes[currentTheme].text"></i>在地圖上顯示今日路線
                 </button>
                 
-                <!-- 行程列表 -->
-                <div class="space-y-3">
+                <!-- 行程列表 (回歸卡片流 + 間隙時間線) -->
+                <div class="space-y-0 relative pb-10">
+                    
+                    <!-- 提示：若無行程顯示 -->
+                    <div x-show="getEvents(currentDay).length === 0" class="text-center py-10 text-gray-400">
+                        <i class="fas fa-clipboard-list text-4xl mb-2 opacity-20"></i>
+                        <p>尚無行程，請點擊右上角新增。</p>
+                    </div>
+
                     <template x-for="(event, index) in getEvents(currentDay)" :key="index">
-                        <div class="card flex items-start space-x-3 relative group">
-                            <div class="text-gray-500 font-mono text-sm pt-1 w-12" x-text="event.time"></div>
-                            
-                            <!-- 修正：更新後的行程卡片佈局 (小標題為主，地點為輔) -->
-                            <div class="flex-1 pr-6 flex flex-col">
-                                <!-- 1. 小標題 (Subtitle) 當作主標題。如果沒有小標題，則地點名稱 (Title) 遞補為主標題 -->
-                                <h3 class="font-bold text-gray-800 text-base leading-tight" x-text="event.subtitle || event.title"></h3>
-
-                                <!-- 2. 地點名稱 (Title) 縮小並加上圖示，移至下方。只在有小標題時顯示 (避免與上方重複) -->
-                                <div x-show="event.subtitle" class="mt-1 flex items-center text-xs font-bold transition-colors" :class="themes[currentTheme].text">
-                                    <i class="fas fa-map-marker-alt mr-1.5 opacity-80"></i>
-                                    <span x-text="event.title"></span>
-                                </div>
+                        <div>
+                            <!-- 行程卡片 (恢復全寬度設計) -->
+                            <div class="card flex items-start space-x-3 relative group mb-0 z-20 shadow-sm border border-gray-100 hover:shadow-md transition-all bg-white">
                                 
-                                <!-- 3. 備註詳情 (Note) - 加上左邊線增加層次感 -->
-                                <p x-show="event.location" class="text-xs text-gray-400 mt-1.5 leading-normal border-l-2 border-gray-100 pl-2 ml-0.5" x-text="event.location"></p>
+                                <!-- 左側：時間 -->
+                                <div class="text-gray-500 font-mono text-sm pt-1 w-12 text-center font-bold shrink-0" x-text="event.time"></div>
+                                
+                                <!-- 右側：內容 -->
+                                <div class="flex-1 pr-6 flex flex-col min-w-0">
+                                    <!-- 1. 小標題 (主標題) -->
+                                    <h3 class="font-bold text-gray-800 text-base leading-tight mb-0.5" x-text="event.subtitle || event.title"></h3>
 
-                                <!-- 地圖導航按鈕 -->
-                                <button @click="searchInMap(event.title)" class="text-[10px] bg-gray-50 border border-gray-200 text-gray-500 px-2.5 py-1.5 rounded-lg flex items-center hover:bg-gray-100 transition w-fit mt-2 shadow-sm">
-                                    <i class="fas fa-location-arrow mr-1.5 text-blue-400"></i> 導航
+                                    <!-- 2. 地點名稱 (次標題 + 定位) -->
+                                    <div x-show="event.subtitle" class="flex items-center text-xs font-bold transition-colors" :class="themes[currentTheme].text">
+                                        <i class="fas fa-map-marker-alt mr-1.5 opacity-80"></i>
+                                        <span x-text="event.title" class="truncate"></span>
+                                    </div>
+                                    
+                                    <!-- 3. 備註詳情 -->
+                                    <p x-show="event.location" class="text-xs text-gray-400 mt-1.5 leading-normal border-l-2 border-gray-100 pl-2 ml-0.5" x-text="event.location"></p>
+
+                                    <!-- 導航按鈕 -->
+                                    <button @click="searchInMap(event.title)" class="text-[10px] bg-gray-50 border border-gray-200 text-gray-500 px-2.5 py-1.5 rounded-lg flex items-center hover:bg-gray-100 transition w-fit mt-2 shadow-sm">
+                                        <i class="fas fa-location-arrow mr-1.5 text-blue-400"></i> 導航
+                                    </button>
+                                </div>
+
+                                <!-- 刪除按鈕 -->
+                                <button @click="deleteEvent(currentDay, index)" class="text-gray-300 hover:text-red-500 absolute top-2 right-2 w-8 h-8 flex items-center justify-center transition-colors">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </div>
 
-                            <button @click="deleteEvent(currentDay, index)" class="text-gray-300 hover:text-red-500 absolute top-2 right-2"><i class="fas fa-times"></i></button>
+                            <!-- 間隙時間線 (只在卡片之間顯示) -->
+                            <div x-show="index < getEvents(currentDay).length - 1" class="h-6 w-0.5 bg-gray-200 ml-6 relative">
+                                <!-- 可以在這裡加入裝飾圓點或時間差文字，目前保持乾淨線條 -->
+                            </div>
                         </div>
                     </template>
-                    <div x-show="getEvents(currentDay).length === 0" class="text-center py-8 text-gray-400"><p>尚無行程，請點擊新增。</p></div>
                 </div>
             </div>
 
@@ -1008,14 +1102,14 @@
                     <label class="text-xs text-gray-500 mb-2 block">主題配色</label>
                     <div class="flex space-x-3 justify-center flex-wrap gap-y-2">
                         <template x-for="(t, key) in themes" :key="key">
-                            <button @click="setTheme(key)" 
+                            <button @click="tempTheme = key" 
                                     class="w-8 h-8 rounded-full border-2 border-white shadow-sm transition-transform active:scale-95 flex items-center justify-center"
-                                    :class="[t.bg, currentTheme === key ? 'scale-110 ring-2 ring-offset-2 ring-gray-300' : '']">
-                                <i x-show="currentTheme === key" class="fas fa-check text-white text-xs"></i>
+                                    :class="[t.bg, tempTheme === key ? 'scale-110 ring-2 ring-offset-2 ring-gray-300' : '']">
+                                <i x-show="tempTheme === key" class="fas fa-check text-white text-xs"></i>
                             </button>
                         </template>
                     </div>
-                    <p class="text-center text-xs text-gray-400 mt-2" x-text="themes[currentTheme].name"></p>
+                    <p class="text-center text-xs text-gray-400 mt-2" x-text="themes[tempTheme].name"></p>
                 </div>
 
                 <div class="space-y-3 border-t border-gray-100 pt-4">
@@ -1023,6 +1117,29 @@
                     <div><label class="text-xs text-gray-500">目的地</label><input x-model="tempSettings.destination" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs text-gray-500">開始日期</label><input x-model="tempSettings.startDate" type="date" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs text-gray-500">結束日期</label><input x-model="tempSettings.endDate" type="date" class="w-full border p-2 rounded"></div>
+                </div>
+
+                <!-- 外觀設定區塊 (新增) -->
+                <div class="space-y-3 border-t border-gray-100 pt-4">
+                    <label class="text-xs text-gray-500 block mb-2">外觀設定</label>
+                    
+                    <!-- Font Size -->
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-600">字體大小</span>
+                        <div class="flex bg-gray-100 rounded-lg p-1">
+                            <button @click="tempAppearance.fontSize = 'normal'" :class="tempAppearance.fontSize === 'normal' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition">標準</button>
+                            <button @click="tempAppearance.fontSize = 'large'" :class="tempAppearance.fontSize === 'large' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition">大</button>
+                        </div>
+                    </div>
+
+                    <!-- Font Style -->
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-600">字體風格</span>
+                        <div class="flex bg-gray-100 rounded-lg p-1">
+                            <button @click="tempAppearance.fontStyle = 'sans'" :class="tempAppearance.fontStyle === 'sans' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition">黑體</button>
+                            <button @click="tempAppearance.fontStyle = 'serif'" :class="tempAppearance.fontStyle === 'serif' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition font-serif">明體</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mt-6 pt-4 border-t border-gray-100">
@@ -1051,7 +1168,7 @@
 
                 <div class="flex space-x-2 mt-6 pt-4 border-t border-gray-100">
                     <button @click="showSettingsModal = false" class="flex-1 py-2 border border-gray-300 text-gray-500 text-xs font-bold rounded-sm hover:bg-gray-50">取消</button>
-                    <button @click="saveTripSettings()" class="flex-1 py-2 text-white text-xs font-bold rounded-sm shadow-sm" :class="themes[currentTheme].bg">確定</button>
+                    <button @click="saveTripSettings()" class="flex-1 py-2 text-white text-xs font-bold rounded-sm shadow-sm" :class="themes[tempTheme].bg">確定</button>
                 </div>
                 
                 <div class="mt-4 text-center">
