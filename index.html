@@ -104,7 +104,12 @@
                 showSettingsModal: false,
                 showWelcomeModal: false, 
                 showTaxModal: false,    
-                tempTaxLimit: 5000,     
+                tempTaxLimit: 5000,
+                
+                // 新增：分享代碼相關狀態
+                showShareModal: false,
+                shareMode: 'export', // 'export' | 'import'
+                shareText: '',
 
                 // 主題系統
                 currentTheme: 'default',
@@ -299,6 +304,71 @@
                     }
                 },
 
+                // 新增：開啟代碼分享視窗 (匯出)
+                openShareExport() {
+                    const data = {
+                        shopping: this.shoppingList,
+                        itinerary: this.itinerary,
+                        prep: this.prepList,
+                        info: this.travelInfo,
+                        settings: this.tripSettings,
+                        theme: this.currentTheme
+                    };
+                    this.shareText = JSON.stringify(data);
+                    this.shareMode = 'export';
+                    this.showShareModal = true;
+                },
+
+                // 新增：開啟代碼分享視窗 (匯入)
+                openShareImport() {
+                    this.shareText = '';
+                    this.shareMode = 'import';
+                    this.showShareModal = true;
+                },
+
+                // 新增：執行代碼匯入
+                doShareImport() {
+                    if (!this.shareText) return;
+                    try {
+                        const data = JSON.parse(this.shareText);
+                        if (!data || !data.settings) {
+                            alert('❌ 代碼格式錯誤：這似乎不是有效的行程代碼。');
+                            return;
+                        }
+                        if (!confirm(`確定要匯入「${data.settings.title || '未命名行程'}」嗎？\n這將會覆蓋您目前的資料。`)) return;
+
+                        this.shoppingList = data.shopping || [];
+                        this.itinerary = data.itinerary || {};
+                        this.prepList = data.prep || [];
+                        this.travelInfo = data.info || {};
+                        this.tripSettings = data.settings || {};
+                        this.currentTheme = data.theme || 'default';
+                        
+                        this.saveData();
+                        this.setTheme(this.currentTheme);
+                        this.fetchRealTimeData();
+                        this.autoUpdateMapByDest();
+                        
+                        this.showShareModal = false;
+                        this.showWelcomeModal = false;
+                        this.showSettingsModal = false;
+                        
+                        alert('✅ 匯入成功！');
+                    } catch (e) {
+                        alert('❌ 匯入失敗：代碼格式不正確。');
+                    }
+                },
+
+                // 新增：複製代碼
+                copyShareText() {
+                    const el = document.getElementById('shareTextArea');
+                    el.select();
+                    el.setSelectionRange(0, 99999);
+                    document.execCommand('copy');
+                    alert('✅ 已複製代碼到剪貼簿！\n請直接貼到 LINE 給朋友。');
+                },
+
+                // 核心修正：匯出格式回歸 json
                 exportData() {
                     const data = {
                         shopping: this.shoppingList,
@@ -323,13 +393,12 @@
                     this.$refs.fileInput.click();
                 },
 
-                // 核心修正：使用 self = this 確保作用域正確，並在匯入後強制更新 UI 狀態
                 handleImport(event) {
                     const file = event.target.files[0];
                     if (!file) return;
                     
                     const reader = new FileReader();
-                    const self = this; // 鎖定 this
+                    const self = this; 
                     
                     reader.onload = (e) => {
                         try {
@@ -357,7 +426,6 @@
                             self.fetchRealTimeData();
                             self.autoUpdateMapByDest();
                             
-                            // 強制關閉所有 Modal
                             self.showSettingsModal = false;
                             self.showWelcomeModal = false;
                             
@@ -367,7 +435,7 @@
                             console.error('Import error:', err);
                             alert('❌ 匯入失敗：檔案無法讀取或格式損毀。');
                         } finally {
-                            event.target.value = ''; // 重置 input 確保下次能再選
+                            event.target.value = ''; 
                         }
                     };
                     
@@ -788,11 +856,15 @@
                 </div>
                 <button @click="initializeTrip()" class="w-full text-white py-3.5 rounded-lg mt-8 font-bold tracking-widest shadow-lg hover:opacity-90 transform transition active:scale-95 bg-blue-600">建立行程</button>
                 
-                <!-- 新增：歡迎頁面的匯入選項 -->
+                <!-- 新增：歡迎頁面的匯入選項 (按鈕樣式升級) -->
                 <div class="mt-4 pt-4 border-t border-gray-100">
                     <p class="text-xs text-gray-400 mb-2">已經有備份檔？</p>
-                    <button @click="triggerImport()" class="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg text-xs font-bold tracking-wide hover:bg-gray-200 transition">
-                        <i class="fas fa-file-import mr-1.5"></i>匯入備份檔案
+                    <button @click="openShareImport()" class="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg text-xs font-bold tracking-wide hover:bg-gray-200 transition">
+                        <i class="fas fa-paste mr-1.5"></i>使用行程代碼匯入
+                    </button>
+                    <!-- 修改：升級檔案匯入按鈕樣式，使其與代碼匯入按鈕一致 -->
+                    <button @click="triggerImport()" class="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg text-xs font-bold tracking-wide hover:bg-gray-200 transition mt-2">
+                        <i class="fas fa-file-import mr-1.5"></i>或是匯入 .json 檔案
                     </button>
                 </div>
             </div>
@@ -826,12 +898,24 @@
 
                 <div class="mt-6 pt-4 border-t border-gray-100">
                     <label class="text-xs text-gray-500 mb-2 block">資料備份與分享</label>
-                    <div class="flex space-x-2">
-                        <button @click="exportData()" class="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
-                            <i class="fas fa-file-export mr-1.5"></i> 匯出備份
+                    
+                    <!-- 行程代碼按鈕 -->
+                    <div class="flex space-x-2 mb-2">
+                        <button @click="openShareExport()" class="flex-1 py-2.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 flex items-center justify-center transition border border-blue-100">
+                            <i class="fas fa-copy mr-1.5"></i> 複製行程代碼
                         </button>
-                        <button @click="triggerImport()" class="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
-                            <i class="fas fa-file-import mr-1.5"></i> 匯入資料
+                        <button @click="openShareImport()" class="flex-1 py-2.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 flex items-center justify-center transition border border-blue-100">
+                            <i class="fas fa-paste mr-1.5"></i> 貼上代碼匯入
+                        </button>
+                    </div>
+
+                    <!-- 檔案按鈕 (修正：樣式升級，與上方按鈕一致) -->
+                    <div class="flex space-x-2">
+                        <button @click="exportData()" class="flex-1 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
+                            <i class="fas fa-file-export mr-1.5"></i> 匯出檔案
+                        </button>
+                        <button @click="triggerImport()" class="flex-1 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center justify-center transition">
+                            <i class="fas fa-file-import mr-1.5"></i> 匯入檔案
                         </button>
                     </div>
                 </div>
@@ -843,6 +927,34 @@
                 
                 <div class="mt-4 text-center">
                     <button @click="resetData()" class="text-xs text-red-400 hover:text-red-600 underline tracking-wide"><i class="fas fa-trash-alt mr-1"></i>清除所有資料並重置</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 行程代碼分享 Modal (新增) -->
+        <div x-show="showShareModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4" style="display: none;">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+                <h3 class="font-bold text-lg mb-2 text-gray-800 flex items-center">
+                    <i class="fas mr-2" :class="shareMode === 'export' ? 'fa-share-alt text-blue-500' : 'fa-download text-green-500'"></i>
+                    <span x-text="shareMode === 'export' ? '分享行程代碼' : '匯入行程代碼'"></span>
+                </h3>
+                
+                <p class="text-xs text-gray-500 mb-3" x-text="shareMode === 'export' ? '複製下方代碼傳給朋友，對方貼上即可匯入行程。' : '請將朋友傳來的行程代碼貼在下方：'"></p>
+                
+                <textarea id="shareTextArea" x-model="shareText" class="w-full h-32 p-3 border border-gray-200 rounded-lg text-xs font-mono bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="在此貼上代碼..."></textarea>
+
+                <div class="flex space-x-3 mt-4">
+                    <button @click="showShareModal = false" class="flex-1 py-2.5 border border-gray-300 text-gray-500 text-sm font-bold rounded-lg hover:bg-gray-50 transition">關閉</button>
+                    
+                    <!-- 匯出模式：顯示複製按鈕 -->
+                    <button x-show="shareMode === 'export'" @click="copyShareText()" class="flex-1 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg shadow-md transition transform active:scale-95">
+                        <i class="fas fa-copy mr-1"></i> 複製代碼
+                    </button>
+                    
+                    <!-- 匯入模式：顯示匯入按鈕 -->
+                    <button x-show="shareMode === 'import'" @click="doShareImport()" class="flex-1 py-2.5 bg-green-600 text-white text-sm font-bold rounded-lg shadow-md transition transform active:scale-95">
+                        <i class="fas fa-file-import mr-1"></i> 開始匯入
+                    </button>
                 </div>
             </div>
         </div>
