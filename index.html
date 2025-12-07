@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>旅程助手 | 經典多彩版</title>
     
-    <!-- PWA 設定 (若無 manifest.json，瀏覽器會忽略此行，不影響網頁運作) -->
+    <!-- PWA 設定 -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,6 +13,12 @@
     <meta name="theme-color" content="#111827" id="meta-theme-color">
     <meta name="format-detection" content="telephone=no">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2249/2249723.png"> 
+
+    <!-- 字型引入 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- 引入 M PLUS Rounded 1c (圓體) 和 Noto Serif TC (明體) -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
 
     <!-- CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -35,7 +41,12 @@
 
         /* 字體風格與大小調整 CSS */
         .font-serif-mode { 
-            font-family: 'Songti TC', 'Noto Serif TC', 'PMingLiU', serif !important; 
+            font-family: 'Noto Serif TC', 'Songti TC', serif !important; 
+        }
+        
+        /* 新增：圓體模式 */
+        .font-rounded-mode {
+            font-family: 'M PLUS Rounded 1c', 'Varela Round', sans-serif !important;
         }
         
         /* 大字體模式：強制放大常用的 Tailwind 文字級距 */
@@ -66,22 +77,30 @@
             background: white; 
             min-height: 100vh; /* 確保至少佔滿一屏 */
             position: relative;
-            padding-bottom: 100px; /* 重要：為底部導航預留足夠空間 */
+            padding-bottom: 120px; /* 增加底部留白，因為懸浮導覽列需要更多空間 */
             box-shadow: 0 0 20px rgba(0,0,0,0.05);
         }
 
-        /* 導航列：使用標準 Fixed 定位，固定在視窗底部 */
+        /* 新增：懸浮式導覽列樣式 (Floating Bottom Nav) */
         .bottom-nav {
             position: fixed;
-            bottom: 0;
+            bottom: 24px; /* 距離底部有一定距離 */
             left: 50%;
-            transform: translateX(-50%); /* 確保在大螢幕時也置中 */
-            width: 100%;
-            max-width: 480px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
+            transform: translateX(-50%); /* 置中 */
+            width: 90%; /* 不佔滿全寬 */
+            max-width: 440px;
+            background: rgba(255, 255, 255, 0.95); /* 輕微透明 */
+            backdrop-filter: blur(12px); /* 毛玻璃特效 */
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 30px; /* 極圓角 (Pill shape) */
             z-index: 50;
-            padding-bottom: env(safe-area-inset-bottom); /* 適配 iPhone 底部橫條 */
+            padding: 12px 0;
+            /* 漂亮的陰影讓它浮起來 */
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.5); /* 玻璃邊框感 */
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
         }
 
         .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; }
@@ -118,7 +137,7 @@
                 currentTab: 'trip',
                 currentListTab: 'prep', 
                 currentDay: 1,
-                toolTab: 'rate', // 新增：工具頁面的子分頁 ('rate' | 'phrases')
+                toolTab: 'rate', 
                 exchangeRate: 0.21,
                 rateDate: '',
                 weatherText: '載入中...',
@@ -143,14 +162,34 @@
                 shareMode: 'export', 
                 shareText: '',
 
-                // 外觀設定
+                // 伴手禮管理 Modal
+                showManageSouvenirModal: false,
+                tempNewRecommendation: '',
+
+                // 外觀設定 (預設改成 rounded)
                 appearance: { fontSize: 'normal', fontStyle: 'sans' },
 
-                // 新增：暫存變數 (用於設定視窗)
+                // 暫存變數 (用於設定視窗)
                 tempTheme: 'default',
                 tempAppearance: { fontSize: 'normal', fontStyle: 'sans' },
 
-                // 新增：日文短句資料
+                // 伴手禮相關
+                souvenirList: [],
+                newSouvenirItem: '',
+                // 預設資料庫 (可被 localStorage 覆蓋)
+                souvenirRecommendations: {
+                    'default': ['當地磁鐵', '特色明信片', '星巴克城市杯', '便利商店零食'],
+                    '東京': ['Tokyo Banana', 'New York Perfect Cheese', 'Sugar Butter Sand Tree', 'Press Butter Sand', 'N.Y. Caramel Sand', '吉野堂名菓小雞饅頭', '東京牛奶起司工房'],
+                    '大阪': ['551 Horai 肉包', 'Rikuro 老爺爺起司蛋糕', 'Bâton d\'or (Pocky界LV)', 'Grand Calbee', '大阪香蕉蛋糕', '食倒太郎布丁', '呼吸巧克力'],
+                    '京都': ['生八橋 (夕子/聖)', '抹茶費南雪', '阿闍梨餅', '中村藤吉抹茶凍', '茶之菓 (MALEBRANCHE)', '伊藤久右衛門'],
+                    '北海道': ['白色戀人', '薯條三兄弟', '六花亭草莓巧克力', 'LeTAO 雙層起司蛋糕', '北菓樓妖精之森', '札幌農學校牛奶餅乾', 'ROYCE 生巧克力'],
+                    '福岡': ['明太子仙貝', '博多通饅頭', '筑紫麻糬', '小雞饅頭', '努努雞', '博多拉麵包'],
+                    '沖繩': ['紅芋塔', '金楚糕', '雪鹽夾心餅乾', '黑糖', '石垣島辣油', '風獅爺擺飾'],
+                    '首爾': ['HBAF 杏仁果', 'Olive Young 貝果餅乾', 'Market O 布朗尼', '辛拉麵 (特別版)', 'Kakao Friends 周邊'],
+                    '曼谷': ['小老闆海苔', 'Pocky (香蕉/芒果口味)', '手標泰式茶', '藍象調理包', 'Bento 魷魚片']
+                },
+
+                // 日文短句資料
                 phrases: [
                     {
                         category: '支付',
@@ -181,12 +220,12 @@
                     }
                 ],
 
-                // 新增：日文發音功能
+                // 日文發音功能
                 speakJapanese(text) {
                     if ('speechSynthesis' in window) {
                         const utterance = new SpeechSynthesisUtterance(text);
-                        utterance.lang = 'ja-JP'; // 設定語言為日文
-                        utterance.rate = 0.9; // 稍微放慢語速
+                        utterance.lang = 'ja-JP'; 
+                        utterance.rate = 0.9; 
                         window.speechSynthesis.speak(utterance);
                     } else {
                         alert('您的裝置不支援語音播放。');
@@ -215,8 +254,7 @@
                 prepList: [],
                 itinerary: {},
                 travelInfo: { flightOut: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'TPE', arrAirport: 'NRT' }, flightIn: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'NRT', arrAirport: 'TPE' }, hotel: { name: '', address: '' } },
-                // 更新 newEvent 結構
-                // title -> 標題, location -> 地點, subtitle -> 備註
+                
                 newItemName: '', newItemPrice: '', newPrepItem: '', newEvent: { time: '10:00', title: '', subtitle: '', location: '' },
                 mapSearchQuery: '', mapUrl: 'https://maps.google.com/maps?q=Tokyo&output=embed', isMapLoading: false,
 
@@ -274,14 +312,20 @@
                 initApp() {
                     const savedSettings = localStorage.getItem('tokyo_settings');
                     const savedTheme = localStorage.getItem('tokyo_theme');
-                    const savedAppearance = localStorage.getItem('tokyo_appearance'); // 新增
+                    const savedAppearance = localStorage.getItem('tokyo_appearance');
+                    const savedRecs = localStorage.getItem('tokyo_souvenir_db'); // 讀取自定義推薦
                     
                     if (savedTheme && this.themes[savedTheme]) {
                         this.setTheme(savedTheme);
                     }
 
-                    if (savedAppearance) { // 新增
+                    if (savedAppearance) {
                         this.appearance = JSON.parse(savedAppearance);
+                    }
+
+                    if (savedRecs) {
+                        // 合併預設與使用者自定義的推薦
+                        this.souvenirRecommendations = { ...this.souvenirRecommendations, ...JSON.parse(savedRecs) };
                     }
 
                     if (!savedSettings) {
@@ -325,6 +369,7 @@
 
                     this.itinerary = {};
                     this.shoppingList = [];
+                    this.souvenirList = []; // 重置伴手禮
                     this.travelInfo = { flightOut: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'TPE', arrAirport: 'NRT' }, flightIn: { airline: '', date: '', time: '', no: '', depTime: '', arrTime: '', depAirport: 'NRT', arrAirport: 'TPE' }, hotel: { name: '', address: '' } };
 
                     this.saveData();
@@ -355,32 +400,28 @@
 
                 loadOtherData() {
                     const savedShopping = localStorage.getItem('tokyo_shopping');
+                    const savedSouvenir = localStorage.getItem('tokyo_souvenir');
                     const savedItinerary = localStorage.getItem('tokyo_itinerary');
                     const savedPrep = localStorage.getItem('tokyo_prep');
                     const savedInfo = localStorage.getItem('tokyo_info');
 
                     if (savedShopping) this.shoppingList = JSON.parse(savedShopping); else this.shoppingList = [];
+                    if (savedSouvenir) this.souvenirList = JSON.parse(savedSouvenir); else this.souvenirList = [];
                     if (savedItinerary) this.itinerary = JSON.parse(savedItinerary); else this.itinerary = {}; 
                     if (savedPrep) this.prepList = JSON.parse(savedPrep); else this.prepList = [];
                     if (savedInfo) this.travelInfo = JSON.parse(savedInfo);
                 },
 
-                // 核心修正：開啟設定時初始化暫存變數
                 openSettings() {
                     this.tempSettings = JSON.parse(JSON.stringify(this.tripSettings));
-                    this.tempTheme = this.currentTheme; // 複製當前主題
-                    this.tempAppearance = JSON.parse(JSON.stringify(this.appearance)); // 複製當前外觀
+                    this.tempTheme = this.currentTheme; 
+                    this.tempAppearance = JSON.parse(JSON.stringify(this.appearance));
                     this.showSettingsModal = true;
                 },
 
-                // 核心修正：確認後才套用暫存變數到正式變數
                 saveTripSettings() { 
                     this.tripSettings = JSON.parse(JSON.stringify(this.tempSettings));
-                    
-                    // 套用外觀
                     this.appearance = JSON.parse(JSON.stringify(this.tempAppearance));
-                    
-                    // 套用主題 (這會更新 currentTheme 並觸發 CSS 變更)
                     this.setTheme(this.tempTheme);
                     
                     this.saveData(); 
@@ -393,40 +434,41 @@
                 resetData() {
                     if (confirm('⚠️ 警告：確定要刪除所有資料嗎？\n\n您的行程、清單、設定都將完全消失且無法復原。')) {
                         localStorage.removeItem('tokyo_shopping');
+                        localStorage.removeItem('tokyo_souvenir');
                         localStorage.removeItem('tokyo_itinerary');
                         localStorage.removeItem('tokyo_prep');
                         localStorage.removeItem('tokyo_info');
                         localStorage.removeItem('tokyo_settings');
                         localStorage.removeItem('tokyo_theme');
-                        localStorage.removeItem('tokyo_appearance'); // 新增
+                        localStorage.removeItem('tokyo_appearance');
+                        localStorage.removeItem('tokyo_souvenir_db'); // 清除自定義推薦
                         location.reload();
                     }
                 },
 
-                // 新增：開啟代碼分享視窗 (匯出)
                 openShareExport() {
                     const data = {
                         shopping: this.shoppingList,
+                        souvenir: this.souvenirList,
                         itinerary: this.itinerary,
                         prep: this.prepList,
                         info: this.travelInfo,
                         settings: this.tripSettings,
                         theme: this.currentTheme,
-                        appearance: this.appearance // 加入外觀設定備份
+                        appearance: this.appearance,
+                        recommendations: this.souvenirRecommendations // 匯出包含自定義的推薦
                     };
                     this.shareText = JSON.stringify(data);
                     this.shareMode = 'export';
                     this.showShareModal = true;
                 },
 
-                // 新增：開啟代碼分享視窗 (匯入)
                 openShareImport() {
                     this.shareText = '';
                     this.shareMode = 'import';
                     this.showShareModal = true;
                 },
 
-                // 新增：執行代碼匯入
                 doShareImport() {
                     if (!this.shareText) return;
                     try {
@@ -438,12 +480,17 @@
                         if (!confirm(`確定要匯入「${data.settings.title || '未命名行程'}」嗎？\n這將會覆蓋您目前的資料。`)) return;
 
                         this.shoppingList = data.shopping || [];
+                        this.souvenirList = data.souvenir || [];
                         this.itinerary = data.itinerary || {};
                         this.prepList = data.prep || [];
                         this.travelInfo = data.info || {};
                         this.tripSettings = data.settings || {};
                         this.currentTheme = data.theme || 'default';
-                        if (data.appearance) this.appearance = data.appearance; // 匯入外觀
+                        if (data.appearance) this.appearance = data.appearance;
+                        if (data.recommendations) {
+                            this.souvenirRecommendations = { ...this.souvenirRecommendations, ...data.recommendations };
+                            localStorage.setItem('tokyo_souvenir_db', JSON.stringify(this.souvenirRecommendations));
+                        }
                         
                         this.saveData();
                         this.setTheme(this.currentTheme);
@@ -460,7 +507,6 @@
                     }
                 },
 
-                // 新增：複製代碼
                 copyShareText() {
                     const el = document.getElementById('shareTextArea');
                     el.select();
@@ -469,16 +515,17 @@
                     alert('✅ 已複製代碼到剪貼簿！\n請直接貼到 LINE 給朋友。');
                 },
 
-                // 核心修正：匯出格式回歸 json
                 exportData() {
                     const data = {
                         shopping: this.shoppingList,
+                        souvenir: this.souvenirList,
                         itinerary: this.itinerary,
                         prep: this.prepList,
                         info: this.travelInfo,
                         settings: this.tripSettings,
                         theme: this.currentTheme,
-                        appearance: this.appearance // 匯出外觀
+                        appearance: this.appearance,
+                        recommendations: this.souvenirRecommendations
                     };
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
@@ -517,12 +564,17 @@
                             }
 
                             self.shoppingList = data.shopping || [];
+                            self.souvenirList = data.souvenir || [];
                             self.itinerary = data.itinerary || {};
                             self.prepList = data.prep || [];
                             self.travelInfo = data.info || {};
                             self.tripSettings = data.settings || {};
                             self.currentTheme = data.theme || 'default';
-                            if (data.appearance) self.appearance = data.appearance; // 匯入外觀
+                            if (data.appearance) self.appearance = data.appearance;
+                            if (data.recommendations) {
+                                self.souvenirRecommendations = { ...self.souvenirRecommendations, ...data.recommendations };
+                                localStorage.setItem('tokyo_souvenir_db', JSON.stringify(self.souvenirRecommendations));
+                            }
                             
                             self.saveData();
                             self.setTheme(self.currentTheme);
@@ -548,6 +600,72 @@
                 addPrepItem() { if(!this.newPrepItem) return; this.prepList.push({ name: this.newPrepItem, done: false }); this.newPrepItem = ''; this.saveData(); },
                 deletePrepItem(index) { this.prepList.splice(index, 1); this.saveData(); },
                 
+                // 伴手禮相關功能
+                getCurrentCityKey() {
+                    const dest = this.tripSettings.destination || '';
+                    for (const key of Object.keys(this.souvenirRecommendations)) {
+                        if (key !== 'default' && dest.includes(key)) {
+                            return key;
+                        }
+                    }
+                    return null; // 代表使用 default，或者是一個新的地點
+                },
+                getRecommendedSouvenirs() {
+                    const key = this.getCurrentCityKey();
+                    return key ? this.souvenirRecommendations[key] : this.souvenirRecommendations['default'];
+                },
+                addSouvenir() { if (!this.newSouvenirItem) return; this.souvenirList.push({ name: this.newSouvenirItem, done: false }); this.newSouvenirItem = ''; this.saveData(); },
+                addFromRecommendation(name) { this.souvenirList.push({ name: name, done: false }); this.saveData(); },
+                deleteSouvenir(index) { this.souvenirList.splice(index, 1); this.saveData(); },
+                
+                // 開啟伴手禮管理視窗
+                openManageSouvenirModal() {
+                    this.showManageSouvenirModal = true;
+                },
+                
+                // 新增推薦項目到當前城市的資料庫
+                addNewRecommendation() {
+                    if (!this.tempNewRecommendation) return;
+                    
+                    // 決定要加入的城市 Key
+                    let cityKey = this.getCurrentCityKey();
+                    
+                    // 如果目前地點不在資料庫中（例如：名古屋），則以目的地名稱作為新 Key
+                    if (!cityKey) {
+                        cityKey = this.tripSettings.destination;
+                        if (!this.souvenirRecommendations[cityKey]) {
+                            this.souvenirRecommendations[cityKey] = [];
+                        }
+                    }
+                    
+                    // 加入新項目 (避免重複)
+                    if (!this.souvenirRecommendations[cityKey].includes(this.tempNewRecommendation)) {
+                        this.souvenirRecommendations[cityKey].push(this.tempNewRecommendation);
+                        // 儲存到 localStorage
+                        localStorage.setItem('tokyo_souvenir_db', JSON.stringify(this.souvenirRecommendations));
+                    }
+                    
+                    this.tempNewRecommendation = '';
+                },
+                
+                // 從資料庫移除推薦
+                removeRecommendation(item) {
+                    let cityKey = this.getCurrentCityKey();
+                    if (!cityKey && this.souvenirRecommendations[this.tripSettings.destination]) {
+                        cityKey = this.tripSettings.destination;
+                    }
+                    if(!cityKey) cityKey = 'default';
+
+                    this.souvenirRecommendations[cityKey] = this.souvenirRecommendations[cityKey].filter(i => i !== item);
+                    localStorage.setItem('tokyo_souvenir_db', JSON.stringify(this.souvenirRecommendations));
+                },
+                
+                // 搜尋 Google
+                searchSouvenirOnline() {
+                    const query = `必買伴手禮 ${this.tripSettings.destination}`;
+                    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+                },
+
                 updateMap() { if(!this.mapSearchQuery) return; this.isMapLoading = true; this.mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(this.mapSearchQuery)}&t=&z=13&ie=UTF8&iwloc=&output=embed`; setTimeout(() => { this.isMapLoading = false; }, 1500); },
                 
                 autoUpdateMapByDest() {
@@ -556,22 +674,13 @@
                 },
 
                 searchInMap(location) { if(!location) return; this.mapSearchQuery = location; this.currentTab = 'map'; this.updateMap(); },
-                // 修正：showDayRoute 現在使用 event.location (地點) 而不是 title
                 showDayRoute(day) { 
                     const events = this.itinerary[day] || []; 
                     if (events.length === 0) { alert('該日尚無行程。'); return; } 
-                    
-                    // 優先使用 location，如果沒有則回退到 title
                     const getLoc = (e) => e.location || e.title;
-                    
-                    if (events.length === 1) { 
-                        this.searchInMap(getLoc(events[0])); 
-                        return; 
-                    } 
-                    
+                    if (events.length === 1) { this.searchInMap(getLoc(events[0])); return; } 
                     const start = getLoc(events[0]); 
                     const end = getLoc(events[events.length - 1]); 
-                    
                     this.isMapLoading = true; 
                     this.currentTab = 'map'; 
                     this.mapUrl = 'https://maps.google.com/maps?q=from:' + encodeURIComponent(start) + '+to:' + encodeURIComponent(end) + '&output=embed'; 
@@ -636,13 +745,12 @@
                     this.showTaxModal = false;
                 },
 
-                // 新增：計算兩個時間點的時間差
                 getTimeDifference(start, end) {
                     if (!start || !end) return '';
                     const [h1, m1] = start.split(':').map(Number);
                     const [h2, m2] = end.split(':').map(Number);
                     let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-                    if (diff < 0) diff += 24 * 60; // 處理跨日或排序問題
+                    if (diff < 0) diff += 24 * 60; 
                     
                     const h = Math.floor(diff / 60);
                     const m = diff % 60;
@@ -655,9 +763,7 @@
                     return res;
                 },
 
-                // 新增：旅遊資訊編輯視窗邏輯
                 openInfoModal() {
-                    // 深層複製避免參照問題
                     this.tempTravelInfo = JSON.parse(JSON.stringify(this.travelInfo));
                     this.showInfoModal = true;
                 },
@@ -665,24 +771,23 @@
                     this.travelInfo = JSON.parse(JSON.stringify(this.tempTravelInfo));
                     this.saveData();
                     this.showInfoModal = false;
-                    // 可選：重新計算時間差或其他邏輯
                 },
 
                 get shoppingTotal() { return this.shoppingList.filter(item => item.bought).reduce((sum, item) => sum + parseInt(item.price || 0), 0); },
                 addNewItem() { if (!this.newItemName) return; this.shoppingList.push({ name: this.newItemName, price: this.newItemPrice || 0, bought: false }); this.newItemName = ''; this.newItemPrice = ''; this.saveData(); },
                 deleteItem(index) { this.shoppingList.splice(index, 1); this.saveData(); },
                 getEvents(day) { return (this.itinerary[day] || []).sort((a, b) => a.time.localeCompare(b.time)); },
-                // 更新 addEvent，加入 subtitle 重置
                 addEvent() { if (!this.itinerary[this.currentDay]) this.itinerary[this.currentDay] = []; this.itinerary[this.currentDay].push({ ...this.newEvent }); this.showAddEventModal = false; this.newEvent = { time: '10:00', title: '', subtitle: '', location: '' }; this.saveData(); },
                 deleteEvent(day, index) { this.itinerary[day].splice(index, 1); this.saveData(); },
                 saveData() { 
                     localStorage.setItem('tokyo_shopping', JSON.stringify(this.shoppingList)); 
+                    localStorage.setItem('tokyo_souvenir', JSON.stringify(this.souvenirList)); 
                     localStorage.setItem('tokyo_itinerary', JSON.stringify(this.itinerary)); 
                     localStorage.setItem('tokyo_prep', JSON.stringify(this.prepList)); 
                     localStorage.setItem('tokyo_info', JSON.stringify(this.travelInfo)); 
                     localStorage.setItem('tokyo_settings', JSON.stringify(this.tripSettings));
                     localStorage.setItem('tokyo_theme', this.currentTheme);
-                    localStorage.setItem('tokyo_appearance', JSON.stringify(this.appearance)); // 新增
+                    localStorage.setItem('tokyo_appearance', JSON.stringify(this.appearance)); 
                 }
             }
         }
@@ -691,7 +796,7 @@
 <body>
 
     <div x-data="travelApp()" x-init="initApp()" class="app-container" x-cloak 
-         :class="[appearance.fontSize === 'large' ? 'app-large-text' : '', appearance.fontStyle === 'serif' ? 'font-serif-mode' : '']">
+         :class="[appearance.fontSize === 'large' ? 'app-large-text' : '', appearance.fontStyle === 'serif' ? 'font-serif-mode' : '', appearance.fontStyle === 'rounded' ? 'font-rounded-mode' : '']">
         
         <!-- 檔案輸入框移到最外層，確保隨時可觸發 -->
         <input type="file" x-ref="fileInput" @change="handleImport($event)" accept=".json" class="hidden">
@@ -962,8 +1067,9 @@
             <!-- 3. 清單分頁 -->
             <div x-show="currentTab === 'shopping'" class="space-y-4">
                 <div class="flex bg-gray-200 rounded-lg p-1">
-                    <button @click="currentListTab = 'prep'" :class="{'bg-white shadow text-gray-800': currentListTab === 'prep', 'text-gray-500': currentListTab !== 'prep'}" class="flex-1 py-1.5 rounded-md text-sm font-bold transition text-center"><i class="fas fa-clipboard-check mr-1"></i> 行前準備</button>
-                    <button @click="currentListTab = 'shop'" :class="{'bg-white shadow': currentListTab === 'shop', 'text-gray-500': currentListTab !== 'shop', [themes[currentTheme].text]: currentListTab === 'shop'}" class="flex-1 py-1.5 rounded-md text-sm font-bold transition text-center"><i class="fas fa-shopping-cart mr-1"></i> 購物清單</button>
+                    <button @click="currentListTab = 'prep'" :class="{'bg-white shadow text-gray-800': currentListTab === 'prep', 'text-gray-500': currentListTab !== 'prep'}" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-center"><i class="fas fa-clipboard-check mr-1"></i> 行前準備</button>
+                    <button @click="currentListTab = 'shop'" :class="{'bg-white shadow text-gray-800': currentListTab === 'shop', 'text-gray-500': currentListTab !== 'shop'}" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-center"><i class="fas fa-shopping-cart mr-1"></i> 購物清單</button>
+                    <button @click="currentListTab = 'souvenir'" :class="{'bg-white shadow': currentListTab === 'souvenir', 'text-gray-500': currentListTab !== 'souvenir', [themes[currentTheme].text]: currentListTab === 'souvenir'}" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-center"><i class="fas fa-gift mr-1"></i> 必買伴手禮</button>
                 </div>
 
                 <!-- 智慧行前清單 -->
@@ -1012,6 +1118,63 @@
                         <template x-for="(item, index) in shoppingList" :key="index">
                             <div class="card flex items-center justify-between py-3 px-4 shadow-sm">
                                 <div class="flex items-center space-x-3"><input type="checkbox" x-model="item.bought" @change="saveData()" class="w-5 h-5 rounded focus:ring-0 text-current" :class="themes[currentTheme].text"><div :class="{'opacity-50 line-through': item.bought}"><p class="font-bold text-gray-800" x-text="item.name"></p><p class="text-xs text-gray-500">¥<span x-text="item.price"></span></p></div></div><button @click="deleteItem(index)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 伴手禮分頁 (新增) -->
+                <div x-show="currentListTab === 'souvenir'" class="space-y-4 pb-10">
+                    <!-- 推薦區塊 -->
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2 px-1">
+                            <h3 class="text-xs font-bold text-gray-500 flex items-center">
+                                <i class="fas fa-thumbs-up mr-1.5 text-yellow-500"></i>人氣推薦
+                            </h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full" x-text="getCurrentCityKey() || tripSettings.destination"></span>
+                                <button @click="openManageSouvenirModal()" class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition">
+                                    <i class="fas fa-cog text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <template x-for="item in getRecommendedSouvenirs()">
+                                <button @click="addFromRecommendation(item)" class="text-xs bg-white border border-yellow-200 text-gray-700 px-3 py-1.5 rounded-full shadow-sm hover:bg-yellow-50 active:scale-95 transition flex items-center">
+                                    <span x-text="item"></span>
+                                    <i class="fas fa-plus ml-1.5 text-yellow-400"></i>
+                                </button>
+                            </template>
+                        </div>
+                        
+                        <!-- 查無資料時顯示搜尋按鈕 -->
+                        <div x-show="getRecommendedSouvenirs().length === 0 || getCurrentCityKey() === null" class="text-center">
+                            <button @click="searchSouvenirOnline()" class="text-xs text-blue-500 underline py-1">
+                                <i class="fas fa-search mr-1"></i>在 Google 上搜尋「<span x-text="tripSettings.destination"></span> 必買伴手禮」
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 新增輸入框 -->
+                    <div class="flex space-x-2 mb-4">
+                        <input x-model="newSouvenirItem" @keyup.enter="addSouvenir()" type="text" placeholder="新增想找的伴手禮..." class="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-300">
+                        <button @click="addSouvenir()" class="text-white px-3 rounded-lg transition shadow-sm" :class="themes[currentTheme].button"><i class="fas fa-plus"></i></button>
+                    </div>
+
+                    <!-- 清單列表 -->
+                    <div class="space-y-2">
+                        <div x-show="souvenirList.length === 0" class="text-center py-8 text-gray-400 text-xs">
+                            <i class="fas fa-gift text-3xl mb-2 opacity-20"></i>
+                            <p>還沒有加入任何伴手禮，<br>點擊上方推薦或自行新增！</p>
+                        </div>
+                        <template x-for="(item, index) in souvenirList" :key="index">
+                            <div class="card flex items-center justify-between py-3 px-4 shadow-sm border-l-4" :class="[item.done ? 'border-gray-300 bg-gray-50' : themes[currentTheme].border]">
+                                <div class="flex items-center space-x-3">
+                                    <input type="checkbox" x-model="item.done" @change="saveData()" class="w-5 h-5 rounded focus:ring-0 text-current" :class="themes[currentTheme].text">
+                                    <span class="font-bold text-gray-700" :class="{'line-through text-gray-400': item.done}" x-text="item.name"></span>
+                                </div>
+                                <button @click="deleteSouvenir(index)" class="text-gray-300 hover:text-red-500 transition"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </template>
                     </div>
@@ -1075,13 +1238,49 @@
             </div>
         </div>
 
-        <!-- 底部導航 -->
-        <nav class="bottom-nav flex justify-around items-center py-3 pb-6 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
-            <button @click="currentTab = 'trip'" :class="currentTab === 'trip' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-map-marked-alt text-xl mb-1"></i><span class="text-xs">行程</span></button>
-            <button @click="currentTab = 'map'" :class="currentTab === 'map' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-map text-xl mb-1"></i><span class="text-xs">地圖</span></button>
-            <button @click="currentTab = 'shopping'" :class="currentTab === 'shopping' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-shopping-bag text-xl mb-1"></i><span class="text-xs">清單</span></button>
-            <button @click="currentTab = 'tools'" :class="currentTab === 'tools' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition"><i class="fas fa-tools text-xl mb-1"></i><span class="text-xs">工具</span></button>
+        <!-- 底部導航 (懸浮式) -->
+        <nav class="bottom-nav">
+            <button @click="currentTab = 'trip'" :class="currentTab === 'trip' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition active:scale-90 transform">
+                <i class="fas fa-map-marked-alt text-xl mb-1"></i><span class="text-[10px] font-bold">行程</span>
+            </button>
+            <button @click="currentTab = 'map'" :class="currentTab === 'map' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition active:scale-90 transform">
+                <i class="fas fa-map text-xl mb-1"></i><span class="text-[10px] font-bold">地圖</span>
+            </button>
+            <button @click="currentTab = 'shopping'" :class="currentTab === 'shopping' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition active:scale-90 transform">
+                <i class="fas fa-shopping-bag text-xl mb-1"></i><span class="text-[10px] font-bold">清單</span>
+            </button>
+            <button @click="currentTab = 'tools'" :class="currentTab === 'tools' ? themes[currentTheme].text : 'text-gray-400'" class="flex flex-col items-center w-1/4 transition active:scale-90 transform">
+                <i class="fas fa-tools text-xl mb-1"></i><span class="text-[10px] font-bold">工具</span>
+            </button>
         </nav>
+
+        <!-- 管理伴手禮 Modal (新增) -->
+        <div x-show="showManageSouvenirModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg text-gray-800">編輯推薦清單</h3>
+                    <button @click="showManageSouvenirModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                </div>
+                <p class="text-xs text-gray-500 mb-4">您可以為「<span class="font-bold text-gray-700" x-text="tripSettings.destination"></span>」新增自定義的推薦項目。</p>
+                
+                <div class="flex space-x-2 mb-4">
+                    <input x-model="tempNewRecommendation" @keyup.enter="addNewRecommendation()" type="text" placeholder="例如: 富士山杯" class="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-300">
+                    <button @click="addNewRecommendation()" class="bg-blue-500 text-white px-3 rounded-lg"><i class="fas fa-plus"></i></button>
+                </div>
+
+                <div class="max-h-60 overflow-y-auto space-y-2">
+                    <template x-for="item in getRecommendedSouvenirs()" :key="item">
+                        <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg">
+                            <span class="text-sm text-gray-700" x-text="item"></span>
+                            <button @click="removeRecommendation(item)" class="text-red-400 hover:text-red-600"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </div>
+                    </template>
+                    <div x-show="getRecommendedSouvenirs().length === 0" class="text-center text-xs text-gray-400 py-2">
+                        尚無推薦項目，請自行新增。
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- 歡迎彈窗 -->
         <div x-show="showWelcomeModal" class="fixed inset-0 welcome-overlay z-[60] flex items-center justify-center p-6" 
@@ -1161,6 +1360,8 @@
                         <div class="flex bg-gray-100 rounded-lg p-1">
                             <button @click="tempAppearance.fontStyle = 'sans'" :class="tempAppearance.fontStyle === 'sans' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition">黑體</button>
                             <button @click="tempAppearance.fontStyle = 'serif'" :class="tempAppearance.fontStyle === 'serif' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition font-serif">明體</button>
+                            <!-- 新增圓體按鈕 -->
+                            <button @click="tempAppearance.fontStyle = 'rounded'" :class="tempAppearance.fontStyle === 'rounded' ? 'bg-white shadow text-gray-800' : 'text-gray-400'" class="px-3 py-1 rounded text-xs font-bold transition" style="font-family: 'M PLUS Rounded 1c', sans-serif;">圓體</button>
                         </div>
                     </div>
                 </div>
